@@ -1,46 +1,16 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import '../providers/adherence_provider.dart';
 
-class HomeTab extends StatefulWidget {
+class HomeTab extends StatelessWidget {
   final String userName;
   final String role;
 
   const HomeTab({super.key, required this.userName, required this.role});
-
-  @override
-  State<HomeTab> createState() => _HomeTabState();
-}
-
-class _HomeTabState extends State<HomeTab> {
-  List<dynamic> _todayDoses = [];
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final doses = await ApiService.getAdherence();
-      setState(() {
-        _todayDoses = doses;
-        _loading = false;
-      });
-    } catch (_) {
-      setState(() => _loading = false);
-    }
-  }
-
-  double get _todayRate {
-    if (_todayDoses.isEmpty) return 0;
-    final taken = _todayDoses.where((d) => d['status'] == 'taken').length;
-    return taken / _todayDoses.length;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,189 +21,286 @@ class _HomeTabState extends State<HomeTab> {
             ? 'Good afternoon'
             : 'Good evening';
 
-    return Scaffold(
-      backgroundColor: AppTheme.background,
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: CustomScrollView(
-                slivers: [
-                  SliverAppBar(
-                    expandedHeight: 180,
-                    floating: false,
-                    pinned: true,
-                    backgroundColor: AppTheme.primary,
-                    flexibleSpace: FlexibleSpaceBar(
-                      background: Container(
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [AppTheme.primary, AppTheme.primaryDark],
+    return Consumer<AdherenceProvider>(
+      builder: (context, adherenceProvider, child) {
+        final isLoading = adherenceProvider.isLoading;
+        final todayDoses = adherenceProvider.todayDoses;
+
+        double todayRate = 0;
+        if (todayDoses.isNotEmpty) {
+          final taken = todayDoses.where((d) => d['status'] == 'taken').length;
+          todayRate = taken / todayDoses.length;
+        }
+
+        if (isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        return RefreshIndicator(
+          onRefresh: () async {
+            await adherenceProvider.refreshData();
+          },
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverAppBar(
+                expandedHeight: 176,
+                floating: false,
+                pinned: true,
+                backgroundColor: AppTheme.primary,
+                surfaceTintColor: Colors.transparent,
+                automaticallyImplyLeading: false,
+                flexibleSpace: FlexibleSpaceBar(
+                  background: Container(
+                    decoration:
+                        const BoxDecoration(gradient: AppTheme.heroGradient),
+                    child: Stack(
+                      children: [
+                        Positioned(
+                          top: -30,
+                          right: -20,
+                          child: Container(
+                            width: 130,
+                            height: 130,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white.withOpacity(0.05),
+                            ),
                           ),
                         ),
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 56, 20, 20),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 '$greeting,',
-                                style: const TextStyle(
-                                    color: Colors.white70, fontSize: 14),
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.7),
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                               Text(
-                                widget.userName,
+                                userName.isEmpty ? 'there' : userName,
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
+                                  fontSize: 23,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.3,
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              Text(
-                                widget.role == 'caregiver'
-                                    ? 'Monitoring your patients today'
-                                    : "Here's your medication summary",
-                                style: const TextStyle(
-                                    color: Colors.white60, fontSize: 12),
+                              Row(
+                                children: [
+                                  Icon(Icons.favorite_rounded,
+                                      size: 13,
+                                      color: AppTheme.pulse.withOpacity(0.9)),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    role == 'caregiver'
+                                        ? 'Monitoring your patients today'
+                                        : "Here's your medication summary",
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.65),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
                         ),
-                      ),
+                      ],
                     ),
                   ),
-                  SliverPadding(
-                    padding: const EdgeInsets.all(16),
-                    sliver: SliverList(
-                      delegate: SliverChildListDelegate([
-                        // Adherence Ring Card
-                        Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: Column(
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.all(16),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    // Adherence ring card
+                    Container(
+                      padding: const EdgeInsets.all(22),
+                      decoration: BoxDecoration(
+                        color: AppTheme.surface,
+                        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                        boxShadow: AppTheme.softShadow(opacity: 0.05),
+                      ),
+                      child: Column(
+                        children: [
+                          const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              "Today's adherence",
+                              style: AppTheme.titleMedium,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          SizedBox(
+                            height: 132,
+                            width: 132,
+                            child: Stack(
+                              fit: StackFit.expand,
                               children: [
-                                const Text(
-                                  "Today's Adherence",
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 16,
+                                CircularProgressIndicator(
+                                  value: todayRate,
+                                  strokeWidth: 11,
+                                  strokeCap: StrokeCap.round,
+                                  backgroundColor: AppTheme.background,
+                                  valueColor: AlwaysStoppedAnimation(
+                                    todayRate >= 0.8
+                                        ? AppTheme.success
+                                        : todayRate >= 0.5
+                                            ? AppTheme.warning
+                                            : AppTheme.error,
                                   ),
                                 ),
-                                const SizedBox(height: 16),
-                                SizedBox(
-                                  height: 120,
-                                  width: 120,
-                                  child: Stack(
-                                    fit: StackFit.expand,
+                                Center(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      CircularProgressIndicator(
-                                        value: _todayRate,
-                                        strokeWidth: 10,
-                                        backgroundColor:
-                                            const Color(0xFFE0E0E0),
-                                        valueColor: AlwaysStoppedAnimation(
-                                          _todayRate >= 0.8
-                                              ? AppTheme.success
-                                              : _todayRate >= 0.5
-                                                  ? AppTheme.warning
-                                                  : AppTheme.error,
+                                      Text(
+                                        '${(todayRate * 100).toInt()}%',
+                                        style: const TextStyle(
+                                          fontSize: 26,
+                                          fontWeight: FontWeight.w800,
+                                          color: AppTheme.textPrimary,
+                                          letterSpacing: -0.3,
                                         ),
                                       ),
-                                      Center(
-                                        child: Text(
-                                          '${(_todayRate * 100).toInt()}%',
-                                          style: const TextStyle(
-                                            fontSize: 28,
-                                            fontWeight: FontWeight.bold,
-                                            color: AppTheme.textPrimary,
-                                          ),
-                                        ),
-                                      ),
+                                      const Text('on track', style: AppTheme.caption),
                                     ],
                                   ),
-                                ),
-                                const SizedBox(height: 16),
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceEvenly,
-                                  children: [
-                                    _StatPill(
-                                      'Taken',
-                                      '${_todayDoses.where((d) => d['status'] == 'taken').length}',
-                                      AppTheme.success,
-                                    ),
-                                    _StatPill(
-                                      'Pending',
-                                      '${_todayDoses.where((d) => d['status'] == 'pending').length}',
-                                      AppTheme.warning,
-                                    ),
-                                    _StatPill(
-                                      'Skipped',
-                                      '${_todayDoses.where((d) => d['status'] == 'skipped').length}',
-                                      AppTheme.error,
-                                    ),
-                                  ],
                                 ),
                               ],
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          "Today's Schedule",
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 16),
-                        ),
-                        const SizedBox(height: 8),
-                        if (_todayDoses.isEmpty)
-                          const Card(
-                            child: Padding(
-                              padding: EdgeInsets.all(20),
-                              child: Center(
-                                child: Text(
-                                  'No medications scheduled today',
-                                  style:
-                                      TextStyle(color: AppTheme.textSecondary),
+                          const SizedBox(height: 22),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _StatPill(
+                                  icon: Icons.check_circle_rounded,
+                                  label: 'Taken',
+                                  value:
+                                      '${todayDoses.where((d) => d['status'] == 'taken').length}',
+                                  color: AppTheme.success,
                                 ),
                               ),
-                            ),
-                          )
-                        else
-                          ..._todayDoses.map((dose) =>
-                              _DoseCard(dose: dose, onRefresh: _load)),
-                      ]),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _StatPill(
+                                  icon: Icons.access_time_filled_rounded,
+                                  label: 'Pending',
+                                  value:
+                                      '${todayDoses.where((d) => d['status'] == 'pending').length}',
+                                  color: AppTheme.warning,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _StatPill(
+                                  icon: Icons.cancel_rounded,
+                                  label: 'Skipped',
+                                  value:
+                                      '${todayDoses.where((d) => d['status'] == 'skipped').length}',
+                                  color: AppTheme.error,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 22),
+                    const Text("Today's schedule", style: AppTheme.titleMedium),
+                    const SizedBox(height: 10),
+                    if (todayDoses.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(28),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surface,
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.radiusLg),
+                          boxShadow: AppTheme.softShadow(opacity: 0.05),
+                        ),
+                        child: Center(
+                          child: Column(
+                            children: [
+                              Container(
+                                width: 56,
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primary.withOpacity(0.08),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.medication_outlined,
+                                  color: AppTheme.primary,
+                                  size: 26,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              const Text(
+                                'No medications scheduled today',
+                                style: AppTheme.bodyMuted,
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else
+                      ...todayDoses.map((dose) => _DoseCard(
+                            dose: dose,
+                            onRefresh: () => adherenceProvider.refreshData(),
+                          )),
+                  ]),
+                ),
               ),
-            ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
 
 class _StatPill extends StatelessWidget {
+  final IconData icon;
   final String label;
   final String value;
   final Color color;
 
-  const _StatPill(this.label, this.value, this.color);
+  const _StatPill({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-              fontSize: 20, fontWeight: FontWeight.bold, color: color),
-        ),
-        Text(label,
-            style:
-                const TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
-      ],
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+                fontSize: 17, fontWeight: FontWeight.w800, color: color),
+          ),
+          Text(label, style: AppTheme.caption),
+        ],
+      ),
     );
   }
 }
@@ -265,51 +332,116 @@ class _DoseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: _statusColor.withOpacity(0.1),
-          child: Icon(_typeIcon, color: _statusColor),
-        ),
-        title: Text(
-          dose['medication_name'] ?? '',
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        subtitle: Text(
-          '${dose['dosage']} · ${dose['scheduled_time']}',
-          style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
-        ),
-        trailing: dose['status'] == 'pending'
-            ? Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.check_circle_outline,
-                        color: AppTheme.success),
-                    onPressed: () async {
-                      await ApiService.markTaken(dose['id']);
-                      onRefresh();
-                    },
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        boxShadow: AppTheme.softShadow(opacity: 0.04),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: _statusColor.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(_typeIcon, color: _statusColor, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  dose['medication_name'] ?? '',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    color: AppTheme.textPrimary,
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.cancel_outlined,
-                        color: AppTheme.error),
-                    onPressed: () async {
-                      await ApiService.markSkipped(dose['id']);
-                      onRefresh();
-                    },
-                  ),
-                ],
-              )
-            : Chip(
-                label: Text(
-                  dose['status'].toString().toUpperCase(),
-                  style: const TextStyle(fontSize: 10, color: Colors.white),
                 ),
-                backgroundColor: _statusColor,
-                padding: EdgeInsets.zero,
+                const SizedBox(height: 3),
+                Text(
+                  '${dose['dosage']} · ${dose['scheduled_time']}',
+                  style: AppTheme.bodyMuted,
+                ),
+              ],
+            ),
+          ),
+          if (dose['status'] == 'pending')
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _ActionButton(
+                  icon: Icons.check_rounded,
+                  color: AppTheme.success,
+                  onTap: () async {
+                    await ApiService.markTaken(dose['id']);
+                    onRefresh();
+                  },
+                ),
+                const SizedBox(width: 8),
+                _ActionButton(
+                  icon: Icons.close_rounded,
+                  color: AppTheme.error,
+                  onTap: () async {
+                    await ApiService.markSkipped(dose['id']);
+                    onRefresh();
+                  },
+                ),
+              ],
+            )
+          else
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: _statusColor,
+                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
               ),
+              child: Text(
+                dose['status'].toString().toUpperCase(),
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _ActionButton({
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: color, size: 18),
       ),
     );
   }

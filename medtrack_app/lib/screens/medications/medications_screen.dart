@@ -64,7 +64,7 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
       case 'tablet':
         return AppTheme.primary;
       case 'syrup':
-        return AppTheme.accent;
+        return AppTheme.primary;
       case 'injection':
         return AppTheme.warning;
       default:

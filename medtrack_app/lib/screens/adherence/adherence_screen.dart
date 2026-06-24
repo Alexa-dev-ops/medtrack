@@ -22,118 +22,138 @@ class _AdherenceScreenState extends State<AdherenceScreen> {
   Future<void> _load() async {
     try {
       final stats = await ApiService.getAdherenceStats();
+      if (!mounted) return;
       setState(() {
         _stats = stats;
         _loading = false;
       });
     } catch (_) {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Color _rateColor(double rate) {
+    if (rate >= 0.8) return AppTheme.success;
+    if (rate >= 0.5) return AppTheme.warning;
+    return AppTheme.error;
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Medication History')),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return RefreshIndicator(
+      onRefresh: _load,
+      color: AppTheme.primary,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+              boxShadow: AppTheme.softShadow(opacity: 0.05),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('7-day adherence overview',
+                    style: AppTheme.titleMedium),
+                const SizedBox(height: 4),
+                const Text(
+                  'How consistently doses were taken on time',
+                  style: AppTheme.bodyMuted,
+                ),
+                const SizedBox(height: 20),
+                if (_stats.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 24),
+                    child: Center(
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            '7-Day Adherence Overview',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 16),
+                          Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              color: AppTheme.primary.withValues(alpha: 0.08),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.bar_chart_rounded,
+                              size: 30,
+                              color: AppTheme.primary,
+                            ),
                           ),
-                          const SizedBox(height: 16),
-                          if (_stats.isEmpty)
-                            const Center(
-                              child: Padding(
-                                padding: EdgeInsets.all(16),
-                                child: Text(
-                                  'No data yet. Add medications to start tracking.',
-                                  textAlign: TextAlign.center,
-                                  style:
-                                      TextStyle(color: AppTheme.textSecondary),
-                                ),
-                              ),
-                            )
-                          else
-                            ..._stats.map((s) {
-                              final total = s['total'] as int;
-                              final taken = s['taken'] as int;
-                              final rate = total > 0 ? taken / total : 0.0;
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          s['date'],
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.w600),
-                                        ),
-                                        Text(
-                                          '${(rate * 100).toInt()}%',
-                                          style: TextStyle(
-                                            color: rate >= 0.8
-                                                ? AppTheme.success
-                                                : rate >= 0.5
-                                                    ? AppTheme.warning
-                                                    : AppTheme.error,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 6),
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(4),
-                                      child: LinearProgressIndicator(
-                                        value: rate,
-                                        minHeight: 10,
-                                        backgroundColor:
-                                            const Color(0xFFE0E0E0),
-                                        valueColor: AlwaysStoppedAnimation(
-                                          rate >= 0.8
-                                              ? AppTheme.success
-                                              : rate >= 0.5
-                                                  ? AppTheme.warning
-                                                  : AppTheme.error,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '$taken taken · ${s['skipped']} skipped · ${s['pending']} pending',
-                                      style: const TextStyle(
-                                        color: AppTheme.textSecondary,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }),
+                          const SizedBox(height: 14),
+                          const Text(
+                            'No data yet — add medications to\nstart tracking adherence.',
+                            textAlign: TextAlign.center,
+                            style: AppTheme.bodyMuted,
+                          ),
                         ],
                       ),
                     ),
-                  ),
-                ],
-              ),
+                  )
+                else
+                  ..._stats.map((s) {
+                    final total = s['total'] as int;
+                    final taken = s['taken'] as int;
+                    final rate = total > 0 ? taken / total : 0.0;
+                    final color = _rateColor(rate);
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 18),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                s['date'],
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13.5,
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                              Text(
+                                '${(rate * 100).toInt()}%',
+                                style: TextStyle(
+                                  color: color,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: LinearProgressIndicator(
+                              value: rate,
+                              minHeight: 9,
+                              backgroundColor: AppTheme.background,
+                              valueColor: AlwaysStoppedAnimation(color),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '$taken taken · ${s['skipped']} skipped · ${s['pending']} pending',
+                            style: AppTheme.caption,
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+              ],
             ),
+          ),
+        ],
+      ),
     );
   }
 }

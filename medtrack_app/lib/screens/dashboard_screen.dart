@@ -5,10 +5,12 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/adherence_provider.dart';
 import '../services/api_service.dart';
+import '../theme/app_theme.dart';
 import 'home_tab.dart';
 import 'medications/medications_screen.dart';
 import 'adherence/adherence_screen.dart';
 import 'caregiver/caregiver_screen.dart';
+import 'caregiver/link_caregiver_sheet.dart'; // Added the import
 import 'notifications_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -23,6 +25,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _role = 'patient';
   String _name = '';
   int _unreadCount = 0;
+
+  final GlobalKey<NotificationsScreenState> _notifKey =
+      GlobalKey<NotificationsScreenState>();
 
   @override
   void initState() {
@@ -42,6 +47,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _loadUnread() async {
     try {
       final notifs = await ApiService.getNotifications();
+      if (!mounted) return;
       setState(() {
         _unreadCount = notifs.where((n) => n['is_read'] == 0).length;
       });
@@ -53,27 +59,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Sign Out'),
-        content: const Text('Are you sure you want to log out of MedTrack?'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        ),
+        title: const Text('Sign out', style: AppTheme.titleMedium),
+        content: const Text(
+          'Are you sure you want to sign out of MedTrack?',
+          style: AppTheme.body,
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
+            style:
+                TextButton.styleFrom(foregroundColor: AppTheme.textSecondary),
             child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Sign Out', style: TextStyle(color: Colors.red)),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.error),
+            child: const Text('Sign out'),
           ),
         ],
       ),
     );
 
-    if (confirm == true) {
+    if (confirm == true && mounted) {
       // 1. Clear Provider State (Important for UI consistency)
-      if (mounted) {
-        await Provider.of<AdherenceProvider>(context, listen: false).logout();
+      await Provider.of<AdherenceProvider>(context, listen: false).logout();
 
-        // 2. Navigate back to login and remove all previous routes
+      // 2. Navigate back to login and remove all previous routes
+      if (mounted) {
         Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
       }
     }
@@ -84,67 +100,136 @@ class _DashboardScreenState extends State<DashboardScreen> {
         const MedicationsScreen(),
         const AdherenceScreen(),
         if (_role == 'caregiver') const CaregiverScreen(),
-        NotificationsScreen(onRead: _loadUnread),
+        NotificationsScreen(key: _notifKey, onRead: _loadUnread),
       ];
+
+  List<String> get _titles => [
+        'MedTrack',
+        'Medications',
+        'History',
+        if (_role == 'caregiver') 'Patients',
+        'Alerts',
+      ];
+
+  bool get _onNotificationsTab => _currentIndex == _tabs.length - 1;
 
   @override
   Widget build(BuildContext context) {
     final isCaregiver = _role == 'caregiver';
+    final tabs = _tabs;
+    final titles = _titles;
+    final safeIndex = _currentIndex.clamp(0, tabs.length - 1);
 
     return Scaffold(
-      // Added AppBar for the Logout Action
+      backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text('MedTrack'),
-        centerTitle: false,
+        title: Text(titles[safeIndex]),
         actions: [
+          if (_onNotificationsTab)
+            TextButton(
+              onPressed: () => _notifKey.currentState?.markAllRead(),
+              style: TextButton.styleFrom(
+                foregroundColor: AppTheme.primary,
+                textStyle: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              child: const Text('Mark all read'),
+            ),
+
+          // ONLY visible to patients: Link Caregiver Button
+          if (!isCaregiver)
+            IconButton(
+              tooltip: 'Link Caregiver',
+              onPressed: () => LinkCaregiverSheet.show(context),
+              icon: Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.person_add_alt_1_rounded,
+                    size: 18, color: AppTheme.primary),
+              ),
+            ),
+
           IconButton(
-            icon: const Icon(Icons.logout_rounded),
-            tooltip: 'Sign Out',
+            tooltip: 'Sign out',
             onPressed: _handleLogout,
+            icon: Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: AppTheme.primary.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.logout_rounded,
+                  size: 18, color: AppTheme.primary),
+            ),
           ),
           const SizedBox(width: 8),
         ],
       ),
-      body: IndexedStack(index: _currentIndex, children: _tabs),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (i) {
-          setState(() => _currentIndex = i);
-          // Adjust index check based on role
-          if (i == (isCaregiver ? 4 : 3)) _loadUnread();
-        },
-        destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
+      body: IndexedStack(index: safeIndex, children: tabs),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(AppTheme.radiusXl),
+            topRight: Radius.circular(AppTheme.radiusXl),
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.medication_outlined),
-            selectedIcon: Icon(Icons.medication),
-            label: 'Medications',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.bar_chart_outlined),
-            selectedIcon: Icon(Icons.bar_chart),
-            label: 'History',
-          ),
-          if (isCaregiver)
-            const NavigationDestination(
-              icon: Icon(Icons.group_outlined),
-              selectedIcon: Icon(Icons.group),
-              label: 'Patients',
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.primaryDark.withValues(alpha: 0.10),
+              blurRadius: 24,
+              offset: const Offset(0, -8),
             ),
-          NavigationDestination(
-            icon: Badge(
-              isLabelVisible: _unreadCount > 0,
-              label: Text('$_unreadCount'),
-              child: const Icon(Icons.notifications_outlined),
-            ),
-            selectedIcon: const Icon(Icons.notifications),
-            label: 'Alerts',
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(AppTheme.radiusXl),
+            topRight: Radius.circular(AppTheme.radiusXl),
           ),
-        ],
+          child: NavigationBar(
+            backgroundColor: Colors.transparent,
+            selectedIndex: safeIndex,
+            onDestinationSelected: (i) {
+              setState(() => _currentIndex = i);
+              if (i == tabs.length - 1) _loadUnread();
+            },
+            destinations: [
+              const NavigationDestination(
+                icon: Icon(Icons.home_outlined),
+                selectedIcon: Icon(Icons.home_rounded),
+                label: 'Home',
+              ),
+              const NavigationDestination(
+                icon: Icon(Icons.medication_outlined),
+                selectedIcon: Icon(Icons.medication_rounded),
+                label: 'Meds',
+              ),
+              const NavigationDestination(
+                icon: Icon(Icons.bar_chart_outlined),
+                selectedIcon: Icon(Icons.bar_chart_rounded),
+                label: 'History',
+              ),
+              if (isCaregiver)
+                const NavigationDestination(
+                  icon: Icon(Icons.group_outlined),
+                  selectedIcon: Icon(Icons.group_rounded),
+                  label: 'Patients',
+                ),
+              NavigationDestination(
+                icon: Badge(
+                  isLabelVisible: _unreadCount > 0,
+                  label: Text('$_unreadCount'),
+                  backgroundColor: AppTheme.pulse,
+                  child: const Icon(Icons.notifications_outlined),
+                ),
+                selectedIcon: const Icon(Icons.notifications_rounded),
+                label: 'Alerts',
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

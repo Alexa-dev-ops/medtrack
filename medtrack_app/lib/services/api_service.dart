@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // Use 10.0.2.2 for Android emulator, localhost for iOS simulator
-  static const String baseUrl = 'http://127.0.0.1:3000/api';
+  static const String baseUrl = 'https://medtrack-app-backend.onrender.com/api';
 
   static Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -17,6 +17,38 @@ class ApiService {
       'Content-Type': 'application/json',
       if (token != null) 'Authorization': 'Bearer $token',
     };
+  }
+
+  // ── HELPER: SAFE LIST EXTRACTOR ──────────────────────────────────
+  // This shields your app from type-mismatch crashes if the server
+  // returns an error object (Map) instead of an array (List).
+  static List<dynamic> _decodeList(http.Response res) {
+    final decoded = jsonDecode(res.body);
+
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      if (decoded is List) {
+        return decoded;
+      } else if (decoded is Map) {
+        // If your backend wraps lists in { "data": [...] }
+        if (decoded.containsKey('data') && decoded['data'] is List) {
+          return decoded['data'];
+        }
+        return []; // Safe fallback
+      }
+      return [];
+    } else {
+      // Extract the error message safely and throw it so the UI can catch it
+      final errorMsg = decoded is Map
+          ? (decoded['message'] ??
+              decoded['error'] ??
+              'Server error ${res.statusCode}')
+          : 'Server error ${res.statusCode}';
+
+      // ignore: avoid_print
+      print(
+          'API Error (${res.request?.url}): $errorMsg'); // Helps with debugging
+      throw Exception(errorMsg);
+    }
   }
 
   // ── AUTH ─────────────────────────────────────────────────────────
@@ -63,7 +95,7 @@ class ApiService {
       Uri.parse('$baseUrl/medications'),
       headers: await _authHeaders(),
     );
-    return jsonDecode(res.body);
+    return _decodeList(res); // Used safe extractor here
   }
 
   static Future<Map<String, dynamic>> addMedication(
@@ -101,7 +133,7 @@ class ApiService {
       Uri.parse('$baseUrl/adherence?date=$d'),
       headers: await _authHeaders(),
     );
-    return jsonDecode(res.body);
+    return _decodeList(res); // Used safe extractor here
   }
 
   static Future<void> markTaken(int logId) async {
@@ -123,7 +155,7 @@ class ApiService {
       Uri.parse('$baseUrl/adherence/stats'),
       headers: await _authHeaders(),
     );
-    return jsonDecode(res.body);
+    return _decodeList(res); // Used safe extractor here
   }
 
   // ── CAREGIVER ────────────────────────────────────────────────────
@@ -142,7 +174,7 @@ class ApiService {
       Uri.parse('$baseUrl/caregiver/patients'),
       headers: await _authHeaders(),
     );
-    return jsonDecode(res.body);
+    return _decodeList(res); // Used safe extractor here
   }
 
   static Future<List<dynamic>> getPatientAdherence(int patientId,
@@ -152,7 +184,7 @@ class ApiService {
       Uri.parse('$baseUrl/caregiver/patients/$patientId/adherence?date=$d'),
       headers: await _authHeaders(),
     );
-    return jsonDecode(res.body);
+    return _decodeList(res); // Used safe extractor here
   }
 
   // ── NOTIFICATIONS ────────────────────────────────────────────────
@@ -162,7 +194,7 @@ class ApiService {
       Uri.parse('$baseUrl/notifications'),
       headers: await _authHeaders(),
     );
-    return jsonDecode(res.body);
+    return _decodeList(res); // Used safe extractor here
   }
 
   static Future<void> markNotificationRead(int id) async {

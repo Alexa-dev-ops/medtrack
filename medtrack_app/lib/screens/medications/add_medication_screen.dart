@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart'; // 1. Added Provider import
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
+import '../../providers/adherence_provider.dart'; // 2. Added AdherenceProvider import
 
 class AddMedicationScreen extends StatefulWidget {
   const AddMedicationScreen({super.key});
@@ -56,7 +58,14 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
         'start_date': _startDate.toIso8601String().split('T')[0],
         'notes': _notesCtrl.text.trim(),
       });
-      if (mounted) Navigator.pop(context);
+
+      if (mounted) {
+        // 3. Trigger the provider to fetch the new database entries
+        Provider.of<AdherenceProvider>(context, listen: false).refreshData();
+
+        // 4. Pop back to the Home screen (which will now react and rebuild!)
+        Navigator.pop(context);
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -1,0 +1,43 @@
+name: Build Flutter APK
+
+on:
+  push:
+    branches: [ "master", "main" ]
+  workflow_dispatch: # This adds a button so you can trigger it manually!
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    # This ensures all commands run inside your Flutter folder
+    defaults:
+      run:
+        working-directory: ./medtrack_app
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Get Dependencies
+        run: flutter pub get
+
+      - name: Build Release APK
+        run: flutter build apk --release
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          # Tell GitHub exactly where to find the finished file
+          path: medtrack_app/build/app/outputs/flutter-apk/app-release.apk
