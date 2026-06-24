@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="MedTrack - Smart Medication Reminder">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="MedTrack">
+  <title>MedTrack</title>
+  <link rel="manifest" href="manifest.json">
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #1a1a2e;
+      background-image: radial-gradient(ellipse at top, #16213e, #1a1a2e);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      font-family: 'Segoe UI', sans-serif;
+      padding: 20px;
+    }
+
+    /* ── TOP BAR ── */
+    .top-bar {
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: white;
+    }
+
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      background: #1A73E8;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    .brand-name {
+      font-size: 20px;
+      font-weight: 700;
+      color: white;
+    }
+
+    .brand-sub {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.5);
+      margin-top: 1px;
+    }
+
+    /* ── DEVICE SELECTOR ── */
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .controls label {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 13px;
+    }
+
+    .device-select {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: white;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      outline: none;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='white' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14L2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 30px;
+    }
+
+    .device-select option {
+      background: #1a1a2e;
+    }
+
+    .orientation-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .orientation-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* ── PHONE FRAME ── */
+    .frame-wrapper {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 32px;
+      flex-wrap: wrap;
+    }
+
+    .phone-outer {
+      position: relative;
+      transition: all 0.35s ease;
+    }
+
+    /* Generic phone shell */
+    .phone-shell {
+      position: relative;
+      border-radius: 44px;
+      padding: 14px;
+      box-shadow:
+        0 0 0 2px #333,
+        0 0 0 6px #1a1a1a,
+        0 30px 80px rgba(0, 0, 0, 0.6);
+      transition: all 0.35s ease;
+    }
+
+    /* iPhone style (notch) */
+    .phone-shell.iphone {
+      background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+      border-radius: 50px;
+      padding: 16px;
+    }
+
+    .phone-shell.iphone::before {
+      content: '';
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 120px;
+      height: 30px;
+      background: #1a1a1a;
+      border-radius: 0 0 20px 20px;
+      z-index: 10;
+    }
+
+    /* Android style (punch-hole) */
+    .phone-shell.android {
+      background: linear-gradient(145deg, #3a3a3a, #1a1a1a);
+      border-radius: 44px;
+    }
+
+    .phone-shell.android::before {
+      content: '';
+      position: absolute;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 12px;
+      height: 12px;
+      background: #1a1a1a;
+      border-radius: 50%;
+      z-index: 10;
+    }
+
+    /* Side buttons */
+    .phone-shell::after {
+      content: '';
+      position: absolute;
+      right: -4px;
+      top: 100px;
+      width: 4px;
+      height: 60px;
+      background: #333;
+      border-radius: 0 3px 3px 0;
+      box-shadow: 0 80px 0 #333;
+    }
+
+    .screen-container {
+      border-radius: 32px;
+      overflow: hidden;
+      position: relative;
+      background: #000;
+    }
+
+    .phone-shell.iphone .screen-container {
+      border-radius: 38px;
+    }
+
+    /* Flutter canvas lives here */
+    #flutter-view {
+      width: 100%;
+      height: 100%;
+      display: block;
+      border: none;
+    }
+
+    /* ── DEVICE INFO BADGE ── */
+    .device-badge {
+      margin-top: 12px;
+      text-align: center;
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 11px;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── HINT TEXT ── */
+    .hint {
+      margin-top: 32px;
+      color: rgba(255, 255, 255, 0.25);
+      font-size: 11px;
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- TOP BAR -->
+  <div class="top-bar">
+    <div class="brand">
+      <div class="brand-icon">💊</div>
+      <div>
+        <div class="brand-name">MedTrack</div>
+        <div class="brand-sub">Device Preview</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <label>Device:</label>
+      <select class="device-select" id="deviceSelect" onchange="applyDevice()">
+        <optgroup label="iPhone">
+          <option value="iphone_14" data-w="390" data-h="844" data-type="iphone">iPhone 14 / 15</option>
+          <option value="iphone_14_pro" data-w="393" data-h="852" data-type="iphone">iPhone 14 / 15 Pro</option>
+          <option value="iphone_plus" data-w="430" data-h="932" data-type="iphone">iPhone 14 / 15 Plus</option>
+          <option value="iphone_se" data-w="375" data-h="667" data-type="iphone">iPhone SE</option>
+        </optgroup>
+        <optgroup label="Android — Pixel">
+          <option value="pixel_7" data-w="412" data-h="892" data-type="android" selected>Pixel 7 / 8</option>
+          <option value="pixel_7_pro" data-w="412" data-h="915" data-type="android">Pixel 7 / 8 Pro</option>
+          <option value="pixel_fold" data-w="344" data-h="770" data-type="android">Pixel Fold (inner)</option>
+        </optgroup>
+        <optgroup label="Android — Samsung">
+          <option value="s23" data-w="360" data-h="780" data-type="android">Samsung S23</option>
+          <option value="s23_ultra" data-w="384" data-h="824" data-type="android">Samsung S23 Ultra</option>
+          <option value="a54" data-w="360" data-h="800" data-type="android">Samsung A54</option>
+        </optgroup>
+        <optgroup label="Other">
+          <option value="tecno" data-w="360" data-h="760" data-type="android">Tecno / Infinix (360p)</option>
+          <option value="redmi" data-w="393" data-h="851" data-type="android">Xiaomi Redmi Note</option>
+        </optgroup>
+      </select>
+
+      <button class="orientation-btn" onclick="toggleOrientation()" title="Rotate">⟳ Rotate</button>
+    </div>
+  </div>
+
+  <!-- PHONE FRAME -->
+  <div class="frame-wrapper">
+    <div class="phone-outer" id="phoneOuter">
+      <div class="phone-shell android" id="phoneShell">
+        <div class="screen-container" id="screenContainer">
+          <!-- Flutter renders here -->
+          <div id="flutter-view"></div>
+        </div>
+      </div>
+      <div class="device-badge" id="deviceBadge">Pixel 7 · 412 × 892</div>
+    </div>
+  </div>
+
+  <div class="hint">Tip: Use the dropdown to switch devices. Click ⟳ to rotate to landscape.</div>
+
+  <script>
+    // ── STATE ──────────────────────────────────────────────────────
+    let landscape = false;
+    let currentW = 412;
+    let currentH = 892;
+
+    function applyDevice() {
+      const sel = document.getElementById('deviceSelect');
+      const opt = sel.options[sel.selectedIndex];
+      const w = parseInt(opt.dataset.w);
+      const h = parseInt(opt.dataset.h);
+      const type = opt.dataset.type;
+      const label = opt.text;
+
+      currentW = w;
+      currentH = h;
+      landscape = false;
+
+      renderFrame(w, h, type, label);
+    }
+
+    function toggleOrientation() {
+      landscape = !landscape;
+      const sel = document.getElementById('deviceSelect');
+      const opt = sel.options[sel.selectedIndex];
+      const type = opt.dataset.type;
+      const label = opt.text;
+      renderFrame(
+        landscape ? currentH : currentW,
+        landscape ? currentW : currentH,
+        type, label
+      );
+    }
+
+    function renderFrame(w, h, type, label) {
+      const shell = document.getElementById('phoneShell');
+      const screen = document.getElementById('screenContainer');
+      const view = document.getElementById('flutter-view');
+      const badge = document.getElementById('deviceBadge');
+
+      // Update shell type
+      shell.className = `phone-shell ${type}`;
+
+      // Scale so frame always fits viewport
+      const maxH = window.innerHeight - 140;
+      const maxW = window.innerWidth - 60;
+      const scaleByH = (maxH - 60) / h;
+      const scaleByW = (maxW - 60) / w;
+      const scale = Math.min(scaleByH, scaleByW, 1);
+
+      const displayW = Math.round(w * scale);
+      const displayH = Math.round(h * scale);
+
+      screen.style.width = displayW + 'px';
+      screen.style.height = displayH + 'px';
+      view.style.width = displayW + 'px';
+      view.style.height = displayH + 'px';
+
+      const orient = landscape ? ' · Landscape' : '';
+      badge.textContent = `${label} · ${w} × ${h}${orient}`;
+    }
+
+    // ── FLUTTER BOOTSTRAP ──────────────────────────────────────────
+    window.addEventListener('load', function () {
+      applyDevice(); // set initial frame size
+
+      _flutter.loader.load({
+        entrypointUrl: 'main.dart.js',
+        onEntrypointLoaded: async function (engineInitializer) {
+          const appRunner = await engineInitializer.initializeEngine({
+            hostElement: document.getElementById('flutter-view'),
+          });
+          await appRunner.runApp();
+        }
+      });
+    });
+
+    window.addEventListener('resize', applyDevice);
+  </script>
+
+  <!-- Flutter bootstrap script -->
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+
+</html>
