@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart'; // 1. Added Provider import
 import '../../services/api_service.dart';
+import '../../services/notification_service.dart';
 import '../../theme/app_theme.dart';
 import '../../providers/adherence_provider.dart'; // 2. Added AdherenceProvider import
 
@@ -40,6 +41,24 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     }
   }
 
+  /// Schedules one local reminder per entry in `_times`, tied to the
+  /// medication's database id so they can be cancelled/edited later.
+  Future<void> _scheduleReminders(int medicationId) async {
+    for (int i = 0; i < _times.length; i++) {
+      final parts = _times[i].split(':');
+      final hour = int.parse(parts[0]);
+      final minute = int.parse(parts[1]);
+
+      await NotificationService.instance.scheduleDailyReminder(
+        id: NotificationService.idFor(medicationId, i),
+        medicationName: _nameCtrl.text.trim(),
+        dosage: _dosageCtrl.text.trim(),
+        hour: hour,
+        minute: minute,
+      );
+    }
+  }
+
   Future<void> _save() async {
     if (_nameCtrl.text.isEmpty || _dosageCtrl.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -50,7 +69,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     setState(() => _loading = true);
 
     try {
-      await ApiService.addMedication({
+      final result = await ApiService.addMedication({
         'name': _nameCtrl.text.trim(),
         'dosage': _dosageCtrl.text.trim(),
         'type': _type,
@@ -59,6 +78,14 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
         'start_date': _startDate.toIso8601String().split('T')[0],
         'notes': _notesCtrl.text.trim(),
       });
+
+      // Schedule the on-device reminders now that we have the saved
+      // medication's id. NOTE: assumes ApiService.addMedication returns a
+      // Map containing the new row's 'id' — adjust if your API differs.
+      final medicationId = result['id'] as int?;
+      if (medicationId != null) {
+        await _scheduleReminders(medicationId);
+      }
 
       if (mounted) {
         // Trigger the provider to fetch the new database entries
